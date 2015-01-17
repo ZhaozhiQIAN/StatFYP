@@ -1,6 +1,6 @@
 library("Rcpp")
 
-sourceCpp("convolve.cpp")
+sourceCpp("cpp/convolve.cpp")
 # handle parameter passing with objects
 
 # class definition
@@ -243,89 +243,9 @@ setMethod(
 				return(champ)
 			}
 		}
-		print(included)
 		return(champ)
 	}
 )
-
-# modification needed
-setGeneric(name="MixtureSolve",
-	def=function(dat,init,ctrl){standardGeneric("MixtureSolve")}
-)
-
-
-setMethod(
-	f = "MixtureSolve",
-	signature = c(dat="RankData",init="RankInit",ctrl="RankControl"),
-	definition = function(dat,init,ctrl){
-		tt=dat@nobj # number of objects
-		distinctn = dat@ndistinct	# total distinct observations
-		clu = init@clu	# total number of clusters
-		z.mat = matrix(ncol = distinctn,nrow = clu)
-		# return values
-		pi0.est = matrix(ncol=tt, nrow=clu)
-		pi0.est.last = matrix(ncol=tt, nrow=clu)
-		p.vec = numeric(clu)
-		p.vec.last = numeric(clu)
-		fai.mat = matrix(ncol=clu,nrow=tt-1)
-		fai.mat.last = matrix(ncol=clu,nrow=tt-1)
-		fai.sig.mat = list()
-
-		loopind=0
-		while(TRUE){
-			loopind = loopind+1
-			# handle loopind=1
-			if (loopind == 1){
-				pi0.est = pi0.mat.init
-			}
-			# E step
-			z.mat.tmp = matrix(ncol = distinctn,nrow = clu)
-			for (i in 1:clu){
-				pi.now = pi0.mat.init[i,]
-				t2 = apply(ordering,1,WeightGivenPi,pi.now) 
-				z.mat.tmp[i,] = fai.mat.init[i,] %*% t2
-			}
-			z.mat.tmp = exp(-1*z.mat.tmp)
-			sums = colSums(z.mat.tmp)
-			for (i in 1:distinctn){
-				z.mat[,i] = z.mat.tmp[,i]/sums[i]
-			}
-
-			# M step
-			p.vec = z.mat %*% count
-			p.vec = p.vec/sum(p.vec)
-			for ( i in 1:clu){
-				count.clu = z.mat[i,] * count
-				solve.clu = AllSolve(ordering=ordering,count=count.clu,fai.init=fai.mat.init[i,],pi0.init=pi0.est[i,])
-				
-				pi0.est[i,] = solve.clu$pi0.est
-				fai.mat[,i] = solve.clu$fai.est
-				fai.sig.mat[[i]] = solve.clu$fai.sig
-			}
-			# break?
-			if (loopind == 1){
-				p.vec.last = p.vec
-				pi0.est.last = pi0.est
-				fai.mat.last = fai.mat
-			} else if (loopind < limit) {
-				cond1 = all( p.vec.last - p.vec < epsilon)
-				cond2 = all( pi0.est.last - pi0.est < epsilon)
-				cond3 = all( fai.mat.last - fai.mat < epsilon)
-				if (cond1 && cond2 && cond3){
-					break
-				}
-			} else {
-				print(paste("Algorithm did not converge in",limit,"iterations"))
-				return(NULL)
-			}
-		} # inf loop
-		# fai.coeff = apply(ordering,1,WeightGivenPi,pi0)%*%count
-		p.vec=as.numeric(p.vec)
-		log_likelihood = mixture_likelihood(ordering=ordering,count=count,p.vec=p.vec,pi0.est=pi0.est,fai.mat=fai.mat,clu=clu)
-		return (list(p.vec=p.vec,pi0.est=pi0.est,fai.mat=fai.mat,fai.sig.mat=fai.sig.mat,log_likelihood=log_likelihood,iteration=loopind))
-	}
-)
-
 
 
 setGeneric(name="AllSolve",
@@ -389,4 +309,85 @@ setMethod(
 	}
 )
 
-	
+
+setGeneric(name="MixtureSolve",
+	def=function(dat,init,ctrl){standardGeneric("MixtureSolve")}
+)
+
+setMethod(
+	f="MixtureSolve",
+	signature=c(dat="RankData",init="RankInit",ctrl="RankControl"),
+	definition=function(dat,init,ctrl){
+		
+		tt=dat@nobj # number of objects
+		n = dat@nobs	# total observations
+		distinctn = dat@ndistinct	# total distinct observations
+		clu = init@clu
+		count = dat@count
+		z = matrix(ncol = distinctn,nrow = clu)
+		# return values
+		pi0.est = list()
+		pi0.est.last = list()
+		p.vec = numeric(clu)
+		p.vec.last = numeric(clu)
+		fai = list()
+		fai.last = list()
+		fai.sig = list()
+
+		loopind=0
+		while(TRUE){
+			loopind = loopind+1
+			# handle loopind=1
+			if (loopind == 1){
+				pi0.est = init@pi0.init
+			}
+			# E step
+			
+			z.tmp = matrix(ncol = distinctn,nrow = clu)
+			for (i in 1:clu){
+				z.tmp[i,] = FindProb(dat,init@pi0.init[[i]],init@fai.init[[i]])
+			}
+			sums = colSums(z.tmp)
+			for (i in 1:distinctn){
+				z[,i] = z.tmp[,i]/sums[i]
+			}
+			
+			# M step
+			p.vec = z %*% count
+			p.vec = p.vec/sum(p.vec)
+			for ( i in 1:clu){
+				#count.clu = z[i,] * count
+				dat.clu = dat
+				dat.clu@count = z[i,] * count
+				init.clu = new("RankInit",fai.init=list(init@fai.init[[i]]),pi0.init=list(pi0.est[[i]]),clu=1L)
+				solve.clu = AllSolve(dat.clu,init.clu,ctrl)
+				
+				pi0.est[[i]] = solve.clu$pi0.est
+				# nrstep = length(solve.clu$solve.result$fai.est)
+				fai[[i]] = solve.clu$fai.est
+				fai.sig[[i]] = solve.clu$fai.sig
+			}
+			# break?
+			if (loopind == 1){
+				p.vec.last = p.vec
+				pi0.est.last = pi0.est
+				fai.last = fai
+			} else if (loopind < ctrl@limit) {
+				cond1 = all( p.vec.last - p.vec < ctrl@epsilon)
+				cond2 = all( unlist(pi0.est.last) - unlist(pi0.est) < ctrl@epsilon)
+				cond3 = all( unlist(fai.last) - unlist(fai) < ctrl@epsilon)
+				if (cond1 && cond2 && cond3){
+					break
+				}
+			} else {
+				print(paste("Algorithm did not converge in",limit,"iterations"))
+				return(NULL)
+			}
+		} # inf loop
+		# fai.coeff = apply(ordering,1,WeightGivenPi,pi0)%*%count
+		p.vec=as.numeric(p.vec)
+		# log_likelihood = mixture_likelihood(ordering=ordering,count=count,p.vec=p.vec,pi0.est=pi0.est,fai=fai,clu=clu)
+		return (list(p.vec=p.vec,pi0.est=pi0.est,fai=fai,fai.sig=fai.sig,iteration=loopind))
+	}
+)
+
