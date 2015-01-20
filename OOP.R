@@ -30,8 +30,13 @@ setClass( "RankInit",
 	representation = representation(
 		fai.init = "list",
 		pi0.init = "list",
-		clu = "integer"
-	)
+		clu = "integer",
+        p.init = "numeric"
+	),
+    prototype = prototype(
+        clu = 1L,
+        p.init = 1
+    )
 )
 
 setClass( "RankControl",
@@ -45,7 +50,7 @@ setClass( "RankControl",
 	prototype = prototype(
 		verbose = FALSE,
 		epsilon = 1e-8,
-		limit = 5000L,
+		limit = 1000L,
 		stepstop = 1e-3,
 		tor = 0
 	)
@@ -121,9 +126,8 @@ setMethod(
 	f="FindProb",
 	signature=c("RankData","numeric","numeric"),
 	definition=function(dat,pi0,fai){
-		# distance = fai %*% apply(dat@ordering,1,WeightGivenPi,pi0)
 		distance = fai %*% matrix(CWeightGivenPi(dat@ranking,pi0),ncol = dat@ndistinct,byrow = TRUE)
-		C = faiC(fai)
+        C = faiC(fai)
 		prob = exp(-1*distance)/C
 		prob
 	}
@@ -190,7 +194,7 @@ setMethod(
 			}
 		}
 		lastitr = GHC(fai.lst[[length(fai.lst)]],t.lst)
-		fai.sig = solve(nobs * lastitr$hessian)
+		fai.sig = try(solve(nobs * lastitr$hessian))
 		# calculate coerced likelihood
 		log_likelihood = -1*nobs*sum(log(rowSums(lastitr$K)+1)) - as.numeric(dat@fai.coeff) %*% fai.lst[[length(fai.lst)]]
 		if (ctrl@verbose==T){
@@ -325,55 +329,56 @@ setMethod(
 		clu = init@clu
 		count = dat@count
 		z = matrix(ncol = distinctn,nrow = clu)
+        p_clu = matrix(ncol = distinctn,nrow = clu)
 		# return values
 		pi0.est = list()
 		pi0.est.last = list()
-		p.vec = numeric(clu)
-		p.vec.last = numeric(clu)
+		p = rep(1/clu,clu)
+		p.last = numeric(clu)
 		fai = list()
 		fai.last = list()
 		fai.sig = list()
-
+       
 		loopind=0
 		while(TRUE){
 			loopind = loopind+1
-			# handle loopind=1
 			if (loopind == 1){
 				pi0.est = init@pi0.init
+                fai = init@fai.init
 			}
 			# E step
-			
+			browser()
 			z.tmp = matrix(ncol = distinctn,nrow = clu)
 			for (i in 1:clu){
-				z.tmp[i,] = FindProb(dat,init@pi0.init[[i]],init@fai.init[[i]])
+				z.tmp[i,] = p[i]*FindProb(dat,pi0.est[[i]],fai[[i]])
 			}
 			sums = colSums(z.tmp)
 			for (i in 1:distinctn){
 				z[,i] = z.tmp[,i]/sums[i]
 			}
-			
 			# M step
-			p.vec = z %*% count
-			p.vec = p.vec/sum(p.vec)
+			p = z %*% count
+			p = p/sum(p)
 			for ( i in 1:clu){
-				#count.clu = z[i,] * count
 				dat.clu = dat
 				dat.clu@count = z[i,] * count
-				init.clu = new("RankInit",fai.init=list(init@fai.init[[i]]),pi0.init=list(pi0.est[[i]]),clu=1L)
+				init.clu = new("RankInit",fai.init=list(fai[[i]]),pi0.init=list(pi0.est[[i]]),clu=1L)
 				solve.clu = AllSolve(dat.clu,init.clu,ctrl)
-				
 				pi0.est[[i]] = solve.clu$pi0.est
-				# nrstep = length(solve.clu$solve.result$fai.est)
 				fai[[i]] = solve.clu$fai.est
 				fai.sig[[i]] = solve.clu$fai.sig
+                p_clu[i,] = FindProb(dat,pi0.est[[i]],fai[[i]])*p[i]
 			}
+            log_likelihood_clu = sum(log(colSums(p_clu))%*%dat@count)
+            print(log_likelihood_clu)
 			# break?
 			if (loopind == 1){
-				p.vec.last = p.vec
+				p.last = p
 				pi0.est.last = pi0.est
 				fai.last = fai
+                log_likelihood_clu.last = log_likelihood_clu
 			} else if (loopind < ctrl@limit) {
-				cond1 = all( p.vec.last - p.vec < ctrl@epsilon)
+				cond1 = all( p.last - p < ctrl@epsilon)
 				cond2 = all( unlist(pi0.est.last) - unlist(pi0.est) < ctrl@epsilon)
 				cond3 = all( unlist(fai.last) - unlist(fai) < ctrl@epsilon)
 				if (cond1 && cond2 && cond3){
@@ -385,9 +390,9 @@ setMethod(
 			}
 		} # inf loop
 		# fai.coeff = apply(ordering,1,WeightGivenPi,pi0)%*%count
-		p.vec=as.numeric(p.vec)
-		# log_likelihood = mixture_likelihood(ordering=ordering,count=count,p.vec=p.vec,pi0.est=pi0.est,fai=fai,clu=clu)
-		return (list(p.vec=p.vec,pi0.est=pi0.est,fai=fai,fai.sig=fai.sig,iteration=loopind))
+		p=as.numeric(p)
+		# log_likelihood = mixture_likelihood(ordering=ordering,count=count,p=p,pi0.est=pi0.est,fai=fai,clu=clu)
+		return (list(p=p,pi0.est=pi0.est,fai=fai,fai.sig=fai.sig,iteration=loopind))
 	}
 )
 

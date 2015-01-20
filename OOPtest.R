@@ -5,7 +5,11 @@ source("OOP.R")
 ################ five object non-mixing test ###############
 # true values
 pi0 = c(1,2,3,4,5)
-w.true = rep(4,4)
+# w.true = c(1.2,1,0.5,0.02)
+# large w: incomplete samples
+# w.true = rep(4,4)
+# increasing w: negative fais coerced to zero
+w.true = c(2,1.2,1.8,1.5)
 # generating samples
 library(permute)
 sethow = how(observed = T)
@@ -25,7 +29,8 @@ o5na_dat = new("RankData",nobj=5L,nobs=10000,ndistinct=nrow(testorder),ordering=
 o5na_suff = ExtractSuff(o5na_dat,pi0)
 testctrl = new("RankControl")
 testinit = new("RankInit",fai.init=list(rep(1,4)),pi0.init=list(pi0),clu=1L)
-NewtonStepSolve(o5na_suff,testinit,testctrl)
+solve_result = NewtonStepSolve(o5na_suff,testinit,testctrl)
+FindProb(o5na_dat,pi0,solve_result$fai.est[[6]])
 #**** AllSolve ****#
 AllSolve(o5na_dat,testinit,testctrl)
 testinit_wrong_pi0 = new("RankInit",fai.init=list(rep(1,4)),pi0.init=list(sample(5,5)),clu=1L)
@@ -53,12 +58,18 @@ for (i in 1:nrow(testorder)){
 	testorder[i,] = perm5[selectedindex[i],]
 }
 o5c2_dat = new("RankData",nobj=5L,nobs=10000,ndistinct=nrow(testorder),ordering=testorder,ranking=RankingToOrdering(testorder),count=as.numeric(truesample))
-o5c2_suff = ExtractSuff(o5c2_dat,pi0)
-c2init = new("RankInit",fai.init=list(fai1,fai2),pi0.init = list(pi01,pi02),clu=2L)
+# c2init = new("RankInit",fai.init=list(fai1,fai2),pi0.init = list(c(1,3,2,4,5),c(2,3,5,1,4)),clu=2L,p.init=c(0.2,0.8))
+c2init = new("RankInit",fai.init=list(fai1,fai2),pi0.init = list(pi01,pi02),clu=2L,p.init=c(0.5,0.5))
 c2ctrl = new("RankControl")
 MixtureSolve(o5c2_dat,c2init,c2ctrl)
 
+log(probs.true1*p_clu1 + probs.true2*p_clu2) %*% truesample
 
+# try single cluster
+c2init_single = new("RankInit",fai.init=list(rep(1,4)),pi0.init = list(pi01),clu=1L)
+single_cluster_model = AllSolve(o5c2_dat,c2init_single,testctrl)
+single_cluster_prob = FindProb(o5c2_dat,single_cluster_model$pi0.est,single_cluster_model$fai.est)
+# EM converges to the single cluster model
 
 
 
