@@ -261,7 +261,7 @@ moments.est = function(ranking=NULL,ordering=NULL,count,size){
 	fai.est
 }
 
-AllSolve = function(ordering=NULL,ranking=NULL,count,fai.init,verbose=T,epsilon=1e-8,limit=5000,simple=TRUE,pi0.init=NULL){
+AllSolve_old = function(ordering=NULL,ranking=NULL,count,fai.init,verbose=T,epsilon=1e-8,limit=5000,simple=TRUE,pi0.init=NULL){
 	swap = function(arr,ind1,ind2){
 		tmp = arr[ind1]
 		arr[ind1] = arr[ind2]
@@ -331,7 +331,8 @@ AllSolve = function(ordering=NULL,ranking=NULL,count,fai.init,verbose=T,epsilon=
 	return(list(solve.result = solve.result,pi0.est=pi0.est,log_likelihood=log_likelihood))
 }
 # obtain C(fai)
-faiC = function(fai){
+faiC = function(fai,t.lst=NULL){
+    if (is.null(t.lst))
 	t.lst = t.gen(length(fai))
 	d = length(fai) # d = t - 1
 	K = matrix(rep(0,d^2),ncol = d, nrow = d)
@@ -386,7 +387,7 @@ moments.est = function(ordering=NULL,count,pi0.est,complete=FALSE,size){
 # pi0.mat each row is a pi0.init (ordering)
 # clu number of clusters
 # fai.mat rach row is a fai.init
-MixtureSolve= function(ordering=NULL,ranking=NULL,count,fai.mat.init,pi0.mat.init,clu,verbose=T,epsilon=1e-8,limit=5000){
+MixtureSolve_old= function(ordering=NULL,ranking=NULL,count,fai.mat.init,pi0.mat.init,clu,verbose=T,epsilon=1e-8,limit=5000){
     # preparations 
 	check1 = nrow(ordering)
 	check2 = length(count)
@@ -436,7 +437,7 @@ MixtureSolve= function(ordering=NULL,ranking=NULL,count,fai.mat.init,pi0.mat.ini
         for ( i in 1:clu){
 			# fai.est=fai.est,fai.sig=fai.sig,pi0.est=pi0.est
             count.clu = z.mat[i,] * count
-            solve.clu = AllSolve(ordering=ordering,count=count.clu,fai.init=fai.mat.init[i,],pi0.init=pi0.est[i,])
+            solve.clu = AllSolve_old(ordering=ordering,count=count.clu,fai.init=fai.mat.init[i,],pi0.init=pi0.est[i,])
 			  
             pi0.est[i,] = solve.clu$pi0.est
 			# nrstep = length(solve.clu$solve.result$fai.est)

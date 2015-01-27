@@ -347,7 +347,6 @@ setMethod(
                 fai = init@fai.init
 			}
 			# E step
-			browser()
 			z.tmp = matrix(ncol = distinctn,nrow = clu)
 			for (i in 1:clu){
 				z.tmp[i,] = p[i]*FindProb(dat,pi0.est[[i]],fai[[i]])
@@ -356,12 +355,18 @@ setMethod(
 			for (i in 1:distinctn){
 				z[,i] = z.tmp[,i]/sums[i]
 			}
+            # browser()
 			# M step
 			p = z %*% count
 			p = p/sum(p)
+            if (any(p<0.03)){
+                warning("One cluster has probability smaller than 3%; Try fewer clusters")
+                return (list(p=p,pi0.est=pi0.est,fai=fai,fai.sig=fai.sig,iteration=loopind))
+            }
 			for ( i in 1:clu){
 				dat.clu = dat
 				dat.clu@count = z[i,] * count
+                dat.clu@nobs = sum(z[i,] * count)
 				init.clu = new("RankInit",fai.init=list(fai[[i]]),pi0.init=list(pi0.est[[i]]),clu=1L)
 				solve.clu = AllSolve(dat.clu,init.clu,ctrl)
 				pi0.est[[i]] = solve.clu$pi0.est
@@ -370,29 +375,29 @@ setMethod(
                 p_clu[i,] = FindProb(dat,pi0.est[[i]],fai[[i]])*p[i]
 			}
             log_likelihood_clu = sum(log(colSums(p_clu))%*%dat@count)
-            print(log_likelihood_clu)
-			# break?
-			if (loopind == 1){
-				p.last = p
-				pi0.est.last = pi0.est
-				fai.last = fai
-                log_likelihood_clu.last = log_likelihood_clu
-			} else if (loopind < ctrl@limit) {
-				cond1 = all( p.last - p < ctrl@epsilon)
-				cond2 = all( unlist(pi0.est.last) - unlist(pi0.est) < ctrl@epsilon)
-				cond3 = all( unlist(fai.last) - unlist(fai) < ctrl@epsilon)
-				if (cond1 && cond2 && cond3){
-					break
-				}
-			} else {
-				print(paste("Algorithm did not converge in",limit,"iterations"))
-				return(NULL)
-			}
+            # break?
+            if(loopind != 1){
+                if (loopind < ctrl@limit) {
+                    cond1 = all( p.last - p < ctrl@epsilon)
+                    cond2 = all( unlist(pi0.est.last) - unlist(pi0.est) < ctrl@epsilon)
+                    cond3 = all( unlist(fai.last) - unlist(fai) < ctrl@epsilon)
+                    if (cond1 && cond2 && cond3){
+                        break
+                    }else if(abs(log_likelihood_clu.last - log_likelihood_clu)<0.01){
+                        break
+                    }  
+                } else {
+                    print(paste("Algorithm did not converge in",ctrl@limit,"iterations"))
+                    return(NULL)
+                }
+            }
+            p.last = p
+            pi0.est.last = pi0.est
+            fai.last = fai
+            log_likelihood_clu.last = log_likelihood_clu
 		} # inf loop
-		# fai.coeff = apply(ordering,1,WeightGivenPi,pi0)%*%count
 		p=as.numeric(p)
-		# log_likelihood = mixture_likelihood(ordering=ordering,count=count,p=p,pi0.est=pi0.est,fai=fai,clu=clu)
-		return (list(p=p,pi0.est=pi0.est,fai=fai,fai.sig=fai.sig,iteration=loopind))
+		return (list(p=p,pi0.est=pi0.est,fai=fai,fai.sig=fai.sig,log_likelihood=log_likelihood_clu.last,iteration=loopind))
 	}
 )
 

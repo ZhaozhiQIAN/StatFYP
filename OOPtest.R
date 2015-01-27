@@ -58,10 +58,9 @@ for (i in 1:nrow(testorder)){
 	testorder[i,] = perm5[selectedindex[i],]
 }
 o5c2_dat = new("RankData",nobj=5L,nobs=10000,ndistinct=nrow(testorder),ordering=testorder,ranking=RankingToOrdering(testorder),count=as.numeric(truesample))
-# c2init = new("RankInit",fai.init=list(fai1,fai2),pi0.init = list(c(1,3,2,4,5),c(2,3,5,1,4)),clu=2L,p.init=c(0.2,0.8))
 c2init = new("RankInit",fai.init=list(fai1,fai2),pi0.init = list(pi01,pi02),clu=2L,p.init=c(0.5,0.5))
 c2ctrl = new("RankControl")
-MixtureSolve(o5c2_dat,c2init,c2ctrl)
+two_cluster_model = MixtureSolve(o5c2_dat,c2init,c2ctrl)
 
 log(probs.true1*p_clu1 + probs.true2*p_clu2) %*% truesample
 
@@ -70,13 +69,55 @@ c2init_single = new("RankInit",fai.init=list(rep(1,4)),pi0.init = list(pi01),clu
 single_cluster_model = AllSolve(o5c2_dat,c2init_single,testctrl)
 single_cluster_prob = FindProb(o5c2_dat,single_cluster_model$pi0.est,single_cluster_model$fai.est)
 # EM converges to the single cluster model
+single_cluster_expectation = 10000*single_cluster_prob
+true_expectation = 10000*(probs.true1*p_clu1 + probs.true2*p_clu2)
+png("cluster_exp1.png",600,600)
+plot(1:120,true_expectation,main="cluster_exp1",ylab="expectation")
+points(1:120,single_cluster_expectation,col="blue",pch=3)
+legend(80,250,c("True expectation","Estimated"),pch=c(1,3),col=c("black","blue"))
+dev.off()
 
-
-
-
-
-
-
-
-
-
+################ Another test: five object two clusters test ###############
+pi01 = c(1,2,3,4,5)
+pi02 = c(5,4,3,2,1)
+w1 = rep(0.3,4)
+w2 = c(0.6,0.5,0.2,0.01)
+fai1 = wTofai(w1)
+fai2 = wTofai(w2)
+p_clu1 = 0.4
+p_clu2 = 0.6
+dist.true1 = apply(perm5,1,KwDist,pi01,w1)
+probs.true1 = exp(-1*dist.true1)/sum(exp(-1*dist.true1))
+dist.true2 = apply(perm5,1,KwDist,pi02,w2)
+probs.true2 = exp(-1*dist.true2)/sum(exp(-1*dist.true2))
+probs.true = p_clu1*probs.true1 + p_clu2*probs.true2
+truesample = sample(1:gamma(6),prob=probs.true,size=10000,replace=T)
+truesample = table(truesample)
+testorder = matrix(nrow=nrow(truesample),ncol=5L)
+selectedindex = as.integer(names(truesample))
+for (i in 1:nrow(testorder)){
+	testorder[i,] = perm5[selectedindex[i],]
+}
+# fit single model
+o5c2_dat = new("RankData",nobj=5L,nobs=10000,ndistinct=nrow(testorder),ordering=testorder,ranking=RankingToOrdering(testorder),count=as.numeric(truesample))
+c2init_single = new("RankInit",fai.init=list(rep(1,4)),pi0.init = list(pi01),clu=1L)
+single_cluster_model = AllSolve(o5c2_dat,c2init_single,testctrl)
+single_cluster_prob = FindProb(o5c2_dat,single_cluster_model$pi0.est,single_cluster_model$fai.est)
+single_cluster_expectation = 10000*single_cluster_prob
+true_expectation = 10000*(probs.true1*p_clu1 + probs.true2*p_clu2)
+plot(1:120,true_expectation,main="cluster_exp1",ylab="expectation")
+points(1:120,single_cluster_expectation,col="blue",pch=3)
+legend(80,250,c("True expectation","Estimated"),pch=c(1,3),col=c("black","blue"))
+# fit two cluster model
+c2init = new("RankInit",fai.init=list(single_cluster_model$fai.est,single_cluster_model$fai.est),pi0.init = list(pi01,c(3,4,5,2,1)),clu=2L,p.init=c(0.2,0.8))
+c2ctrl = new("RankControl")
+two_cluster_model = MixtureSolve(o5c2_dat,c2init,c2ctrl)
+prob.est1 = FindProb(o5c2_dat,two_cluster_model$pi0.est[[1]],two_cluster_model$fai[[1]])
+prob.est2 = FindProb(o5c2_dat,two_cluster_model$pi0.est[[2]],two_cluster_model$fai[[2]])
+prob.est = two_cluster_model$p[1]*prob.est1+two_cluster_model$p[2]*prob.est2
+two_cluster_expectation = prob.est*10000
+png("cluster_exp1_2.png",600,600)
+plot(1:120,true_expectation,main="cluster_exp2",ylab="expectation")
+points(1:120,two_cluster_expectation,col="blue",pch=3)
+legend(80,250,c("True expectation","Estimated 2c"),pch=c(1,3),col=c("black","blue"))
+dev.off()
