@@ -58,30 +58,30 @@ setClass( "RankControl",
 
 
 # constructors
+# deprecated DO NOT USE
 # ranking and ordering MUST be integer matrix ranging from 1 to nobj (maximum 26 objects supported)
-RankData = function(ordering=NULL,ranking=NULL,...){
+RankData = function(ordering=NULL,ranking=NULL,count=NULL,...){
 	if( is.null(ordering) && is.null(ranking)){
 		cat("argument is missing\nno object created\n")
 		return(NULL)
 	} else if (is.null(ordering)){
 		nobj = ncol(ranking)
-		count = apply(ranking, 1, function(x){paste(letters[x], collapse="")})
-		count = table(count)
-		ranking = unlist(strsplit(names(count),split=""))
+		apply_count = apply(ranking, 1, function(x){paste(letters[x], collapse="")})
+		apply_count = table(apply_count)
+		ranking = unlist(strsplit(names(apply_count),split=""))
 		ranking = as.integer(factor(ranking,levels=letters,labels=1:26))
 		ranking = matrix(ranking,ncol=nobj,byrow=TRUE)
 		ordering = RankingToOrdering(ranking)
-		
+
 	} else if (is.null(ranking)){
 		nobj = ncol(ordering)
-		count = apply(ordering, 1, function(x){paste(letters[x], collapse="")})
-		count = table(count)
-		ordering = unlist(strsplit(names(count),split=""))
+		apply_count = apply(ordering, 1, function(x){paste(letters[x], collapse="")})
+		apply_count = table(apply_count)
+		ordering = unlist(strsplit(names(apply_count),split=""))
 		ordering = as.integer(factor(ordering,levels=letters,labels=1:26))
 		ordering = matrix(ordering,ncol=nobj,byrow=TRUE)
 		ranking = RankingToOrdering(ordering)
 	}
-	count = as.numeric(count)
 	nobs = sum(count)
 	ndistinct = nrow(ranking)
 	new("RankData",nobs = nobs,nobj=nobj,ndistinct=ndistinct,ordering=ordering,ranking=ranking,count=count,...)
@@ -322,7 +322,7 @@ setMethod(
 	f="MixtureSolve",
 	signature=c(dat="RankData",init="RankInit",ctrl="RankControl"),
 	definition=function(dat,init,ctrl){
-		
+
 		tt=dat@nobj # number of objects
 		n = dat@nobs	# total observations
 		distinctn = dat@ndistinct	# total distinct observations
@@ -338,7 +338,7 @@ setMethod(
 		fai = list()
 		fai.last = list()
 		fai.sig = list()
-       
+
 		loopind=0
 		while(TRUE){
 			loopind = loopind+1
@@ -385,7 +385,7 @@ setMethod(
                         break
                     }else if(abs(log_likelihood_clu.last - log_likelihood_clu)<0.01){
                         break
-                    }  
+                    }
                 } else {
                     print(paste("Algorithm did not converge in",ctrl@limit,"iterations"))
                     return(NULL)
@@ -401,3 +401,29 @@ setMethod(
 	}
 )
 
+setGeneric(name="PlotExp",
+	def=function(dat,model){standardGeneric("PlotExp")}
+)
+
+
+setMethod(
+	f="PlotExp",
+	signature=c(dat="RankData",model="list"),
+	definition=function(dat,model){
+        dev.new()
+        nclu = length(model$pi0.est)
+        if(dat@nobj > 5){
+            stop("Too many objects")
+        }
+        est_prob = 0
+        for (i in 1:nclu){
+            est_prob = est_prob + FindProb(dat,model$pi0.est[[i]],model$fai[[i]])*model$p[i]
+        }
+        expectation = est_prob*dat@nobs
+        plot(1:gamma(dat@nobj+1),dat@count,main=paste("Experiment with",nclu,"clusters"),ylab="expectation/observation",xlab="ranking")
+        points(1:gamma(dat@nobj+1),expectation,col="blue",pch=3)
+        
+        legend(0,150,c("Observation","Estimated"),pch=c(1,3),col=c("black","blue"))
+    }
+)    
+        
