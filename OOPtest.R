@@ -121,3 +121,4 @@ plot(1:120,true_expectation,main="cluster_exp2",ylab="expectation")
 points(1:120,two_cluster_expectation,col="blue",pch=3)
 legend(80,250,c("True expectation","Estimated 2c"),pch=c(1,3),col=c("black","blue"))
 dev.off()
+

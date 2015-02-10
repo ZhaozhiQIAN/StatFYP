@@ -338,7 +338,7 @@ setMethod(
 		fai = list()
 		fai.last = list()
 		fai.sig = list()
-
+        func.call = match.call()
 		loopind=0
 		while(TRUE){
 			loopind = loopind+1
@@ -398,15 +398,56 @@ setMethod(
 		} # inf loop
 		p=as.numeric(p)
         v = length(p) - 1 + sum(unlist(fai)!=0)
-        bic = 2*log_likelihood_clu.last - v*log(sum(count))
+        bic = 2*log_likelihood_clu.last - v*log(n)
+        est_prob = 0
+        for (i in 1:clu){
+            est_prob = est_prob + FindProb(dat,pi0.est[[i]],fai[[i]])*p[i]
+        }
+        expectation = as.numeric(est_prob*n)
+        SSR = sum((expectation-dat@count)^2/expectation)
         # fai.sig is not returned
-		return (list(p=p,pi0.est=pi0.est,fai=fai,log_likelihood=log_likelihood_clu.last,free_params=v,BIC=bic,iteration=loopind))
+        ret = new("RankModel",p=p,pi0.est=pi0.est,fai=fai,SSR=SSR,log_likelihood=log_likelihood_clu.last,free_params=v,BIC=bic,expectation=expectation,iteration=loopind,model.call=func.call)
+		# return (list(p=p,pi0.est=pi0.est,fai=fai,SSR=SSR,log_likelihood=log_likelihood_clu.last,free_params=v,BIC=bic,expectation=expectation,iteration=loopind))
+        ret
 	}
 )
 
-setGeneric(name="PlotExp",
-	def=function(dat,model){standardGeneric("PlotExp")}
+setClass( "RankModel",
+	representation = representation(
+        p = "numeric",
+        pi0.est = "list",
+        fai = "list",
+        SSR = "numeric",
+        log_likelihood = "numeric",
+        free_params = "numeric",
+        BIC = "numeric",
+        iteration = "numeric",
+        expectation = "numeric",
+        model.call = "call"
+	)
 )
+
+
+setMethod(
+	f="print",
+	signature=c("RankModel"),
+	definition=function(x,...){
+        cat ("\nCall:\n",paste(deparse(x$x.call),sep="\n",collapse="\n"),"\n\n",sep="")
+        cat (paste("# clusters:",length(x@p)),"\n\n")
+        for (i in 1:length(x@pi0.est)){
+            cat (paste("cluster",i),"\n")
+            cat ("\t","Proportion:",x@p[i],"\n")
+            cat ("\t","Modal ordering:",x@pi0.est[[1]],"\n")
+            cat ("\t","Weights:",faiTow(x@fai[[i]]),"\n")
+        }
+        cat ("\n\nGoodness of Fit Results:\n")
+        cat ("Pearson Residual Sum of Square:",x@SSR,"\n")
+        cat ("Log Likelihood:",x$log_likelihood,"\n")
+        cat ("#Free parameters:",x@free_params,"\n")
+        cat ("BIC",x$BIC,"\n")
+        cat ("#iterations",x$iteration,"\n")
+    }
+)    
 
 
 setMethod(
@@ -418,15 +459,13 @@ setMethod(
         if(dat@nobj > 5){
             stop("Too many objects")
         }
-        est_prob = 0
-        for (i in 1:nclu){
-            est_prob = est_prob + FindProb(dat,model$pi0.est[[i]],model$fai[[i]])*model$p[i]
-        }
-        expectation = est_prob*dat@nobs
         plot(1:gamma(dat@nobj+1),dat@count,main=paste("Experiment with",nclu,"clusters"),ylab="expectation/observation",xlab="ranking")
-        points(1:gamma(dat@nobj+1),expectation,col="blue",pch=3)
-        
+        points(1:gamma(dat@nobj+1),model$expectation,col="blue",pch=3)
         legend(0,150,c("Observation","Estimated"),pch=c(1,3),col=c("black","blue"))
     }
 )    
-        
+
+
+setGeneric(name="PlotExp",
+	def=function(dat,model){standardGeneric("PlotExp")}
+)
