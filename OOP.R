@@ -397,7 +397,10 @@ setMethod(
             log_likelihood_clu.last = log_likelihood_clu
 		} # inf loop
 		p=as.numeric(p)
-		return (list(p=p,pi0.est=pi0.est,fai=fai,fai.sig=fai.sig,log_likelihood=log_likelihood_clu.last,iteration=loopind))
+        v = length(p) - 1 + sum(unlist(fai)!=0)
+        bic = 2*log_likelihood_clu.last - v*log(sum(count))
+        # fai.sig is not returned
+		return (list(p=p,pi0.est=pi0.est,fai=fai,log_likelihood=log_likelihood_clu.last,free_params=v,BIC=bic,iteration=loopind))
 	}
 )
 
