@@ -432,7 +432,7 @@ setMethod(
 	f="print",
 	signature=c("RankModel"),
 	definition=function(x,...){
-        cat ("\nCall:\n",paste(deparse(x$x.call),sep="\n",collapse="\n"),"\n\n",sep="")
+        cat ("\nCall:\n",paste(deparse(x@model.call),sep="\n",collapse="\n"),"\n\n",sep="")
         cat (paste("# clusters:",length(x@p)),"\n\n")
         for (i in 1:length(x@pi0.est)){
             cat (paste("cluster",i),"\n")
@@ -442,10 +442,10 @@ setMethod(
         }
         cat ("\n\nGoodness of Fit Results:\n")
         cat ("Pearson Residual Sum of Square:",x@SSR,"\n")
-        cat ("Log Likelihood:",x$log_likelihood,"\n")
+        cat ("Log Likelihood:",x@log_likelihood,"\n")
         cat ("#Free parameters:",x@free_params,"\n")
-        cat ("BIC",x$BIC,"\n")
-        cat ("#iterations",x$iteration,"\n")
+        cat ("BIC",x@BIC,"\n")
+        cat ("#iterations",x@iteration,"\n")
     }
 )    
 
