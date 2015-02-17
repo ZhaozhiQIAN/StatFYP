@@ -450,22 +450,22 @@ setMethod(
 )    
 
 
+setGeneric(name="PlotExp",
+	def=function(dat,model){standardGeneric("PlotExp")}
+)
+
 setMethod(
 	f="PlotExp",
-	signature=c(dat="RankData",model="list"),
+	signature=c(dat="RankData",model="RankModel"),
 	definition=function(dat,model){
         dev.new()
-        nclu = length(model$pi0.est)
+        nclu = length(model@pi0.est)
         if(dat@nobj > 5){
             stop("Too many objects")
         }
         plot(1:gamma(dat@nobj+1),dat@count,main=paste("Experiment with",nclu,"clusters"),ylab="expectation/observation",xlab="ranking")
-        points(1:gamma(dat@nobj+1),model$expectation,col="blue",pch=3)
+        points(1:gamma(dat@nobj+1),model@expectation,col="blue",pch=3)
         legend(0,150,c("Observation","Estimated"),pch=c(1,3),col=c("black","blue"))
     }
 )    
 
-
-setGeneric(name="PlotExp",
-	def=function(dat,model){standardGeneric("PlotExp")}
-)

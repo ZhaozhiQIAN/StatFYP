@@ -24,7 +24,7 @@ PlotExp(apa_obj,two_cluster_model)
 c3init = new("RankInit",fai.init=list(rep(0.1,4),rep(0.1,4),rep(0.1,4)),pi0.init = list(c(3,4,5,1,2),c(2,3,1,5,4),c(4,2,5,3,1)),clu=3L,p.init=rep(1,3)/3)
 c3ctrl = new("RankControl")
 three_cluster_model = MixtureSolve(apa_obj,c3init,c3ctrl)
-three_cluster_model$SSR
+three_cluster_model@SSR
 PlotExp(apa_obj,three_cluster_model)
 
 
